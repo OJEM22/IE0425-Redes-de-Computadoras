@@ -1,10 +1,10 @@
 # ==============================
-# Direcciones simplificadas (8 bits como pide la tarea)
+# Direcciones simplificadas (8 bits)
 # ==============================
 PC1_IP = "1"
 PC2_IP = "2"
 
-# Router tiene dos interfaces (izq/der) con IPs
+# Router tiene dos interfaces de conexion (izq/der) con IPs
 ROUTER_IP_LEFT = "3"
 ROUTER_IP_RIGHT = "4"
 
@@ -16,23 +16,40 @@ ROUTER_MAC_RIGHT = "D"
 SWITCH1_MAC = "E"
 SWITCH2_MAC = "F"
 
-# Puertos ejemplo: TCP = 80, UDP = 53 (elegidos y documentados)
+# Puertos ejemplo: TCP = 80, UDP = 53 (TCP para web, UDP para DNS)
 TCP_PORT = 80
 UDP_PORT = 53
+
+# Codigos aplicaciones ejemplo
+APP_CODES = {
+    "WhatsApp": "11",
+    "Messenger": "12",
+    "Telegram": "13"
+}
 
 # ==============================
 # CAPAS
 # ==============================
 class CapaAplicacion:
     @staticmethod
-    def encapsular(mensaje, protocolo, puerto_destino):
-        # Capa 5: Solo el mensaje (sin encabezado)
-        return mensaje
+    def encapsular(mensaje, protocolo, puerto_destino, app="GENERICA"):
+        # Capa 5: Añade encabezado de aplicación con la app seleccionada
+        encabezado = f"[APP:{app}]"
+        return encabezado + mensaje
     
     @staticmethod
     def desencapsular(datos):
-        # Capa 5: Solo extrae el mensaje
-        return datos, "TCP", 80  # Valores por defecto
+        # Extrae encabezado de aplicación
+        if datos.startswith("[APP:"):
+            fin = datos.find(']') + 1
+            encabezado = datos[:fin]
+            mensaje = datos[fin:]
+            app = encabezado[5:-1]  # entre "APP:" y "]"
+        else:
+            app = "GENERICA"
+            mensaje = datos
+        return mensaje, app, "TCP", TCP_PORT
+
 
 class CapaTransporte:
     @staticmethod
@@ -243,10 +260,12 @@ class Dispositivo:
             return
 
         if capa_actual == 5:
-            mensaje, protocolo, puerto_destino = CapaAplicacion.desencapsular(datos)
-            print(f"  Aplicación: mensaje recibido: '{mensaje}'")
+            mensaje, app, protocolo, puerto_destino = CapaAplicacion.desencapsular(datos)
+            
+            print(f"  Aplicación ({app}): mensaje recibido: '{mensaje}'")
             print(" Capa5 ->", datos)
             return
+
 
 # ====== Dispositivos concretos ======
 class PC(Dispositivo):
@@ -255,11 +274,11 @@ class PC(Dispositivo):
         self.IP = ip
         self.MAC = mac
 
-    def enviar_mensaje(self, mensaje, ip_destino, protocolo="TCP", puerto_destino=TCP_PORT):
-        print(f"\n=== {self.nombre} ENVIANDO ===")
+    def enviar_mensaje(self, mensaje, ip_destino, protocolo="TCP", puerto_destino=TCP_PORT, app="GENERICA"):
+        print(f"\n=== {self.nombre} ENVIANDO ({app}) ===")
         
-        # Capa 5: Aplicación (solo el mensaje)
-        datos_app = CapaAplicacion.encapsular(mensaje, protocolo, puerto_destino)
+        # Capa 5: Aplicación (mensaje + app)
+        datos_app = CapaAplicacion.encapsular(mensaje, protocolo, puerto_destino, app)
         print(" Capa5 ->", datos_app)
         
         # Capa 4: Transporte (añade H4)
@@ -281,15 +300,15 @@ class PC(Dispositivo):
         
         # Capa 1: Física
         bits = CapaFisica.encapsular(trama)
-        print(f" Capa1 -> Bits: {bits[:64]}...")  # Mostrar primeros 64 bits
+        print(f" Capa1 -> Bits: {bits[:64]}...")
 
-        # Enviar por la interfaz
         interfaz_local = self.tabla_enlace.get(siguiente_mac)
         if not interfaz_local:
             print(f" {self.nombre}: No hay interfaz de enlace para enviar a MAC {siguiente_mac}")
             return
         
         self.enviar_por_interfaz(interfaz_local, trama)
+
 
 class Router(Dispositivo):
     def __init__(self, nombre, ip_izq, mac_izq, ip_der, mac_der):
@@ -367,22 +386,46 @@ def main():
     pc1, pc2, router, switch1, switch2 = configurar_red()
     print("=== SIMULADOR DE RED SIMPLE ===")
     print("Topología: PC1 - Switch1 - Router1 - Switch2 - PC2")
+    
     while True:
         print("\nOpciones para enviar mensaje:")
         print("1) PC1 -> PC2")
         print("2) PC2 -> PC1")
         print("3) Salir")
         opt = input("Selecciona (1-3): ").strip()
-        if opt == "1":
-            msg = input("Mensaje desde PC1: ")
-            pc1.enviar_mensaje(msg, PC2_IP, protocolo="TCP", puerto_destino=TCP_PORT)
-        elif opt == "2":
-            msg = input("Mensaje desde PC2: ")
-            pc2.enviar_mensaje(msg, PC1_IP, protocolo="TCP", puerto_destino=TCP_PORT)
+        
+        if opt in ["1", "2"]:
+            msg = input("Mensaje: ")
+            print("Selecciona aplicación:")
+            print("1) WhatsApp")
+            print("2) Messenger")
+            print("3) Telegram")
+            app_opt = input("App (1-3): ").strip()
+
+            if app_opt == "1":
+                app = "WhatsApp"
+            elif app_opt == "2":
+                app = "Messenger"
+            elif app_opt == "3":
+                app = "Telegram"
+            else:
+                print("Opción inválida. Se cancela el envío.")
+                continue
+            
+            # 99 si no está en la lista
+            codigo_app = APP_CODES.get(app, 99)
+            if opt == "1":
+                
+                pc1.enviar_mensaje(msg, PC2_IP, protocolo="UDP", puerto_destino=UDP_PORT, app=codigo_app)  
+            elif opt == "2":
+                pc2.enviar_mensaje(msg, PC1_IP, protocolo="TCP", puerto_destino=TCP_PORT, app=codigo_app) 
+        
         elif opt == "3":
             break
         else:
             print("Opción inválida.")
+
+
 
 if __name__ == "__main__":
     main()
