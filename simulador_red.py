@@ -360,8 +360,8 @@ def main():
     
     while True:
         print("\nOpciones para enviar mensaje:")
-        print("1) PC1 -> PC2 (UDP)")
-        print("2) PC2 -> PC1 (TCP)")
+        print("1) PC1 -> PC2")
+        print("2) PC2 -> PC1")
         print("3) Salir")
         opt = input("Selecciona (1-3): ").strip()
         
