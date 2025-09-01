@@ -282,7 +282,7 @@ class PC(Dispositivo):
         
         # Capa física: mostrar prefijo de bits
         bits = CapaFisica.encapsular(trama)
-        print(f" Capa1 -> Bits: {bits[:64]}...")
+        print(f" Capa1 -> Bits: {bits}")
         
         # Obtener interfaz por la que se alcanza esa MAC (desde tabla_enlace de la PC)
         interfaz_local = self.tabla_enlace.get(siguiente_mac)
