@@ -395,6 +395,5 @@ def main():
         else:
             print("Opción inválida.")
 
-# Punto de entrada cuando se ejecuta como script
 if __name__ == "__main__":
     main()
